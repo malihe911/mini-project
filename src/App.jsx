@@ -8,13 +8,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
 const App = ({ language = "en" }) => {
+  const isRtl = language === "fa";
   const [numPages, setNumPages] = useState(0);
   const [pages, setPages] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const bookRef = useRef(null);
+  const flipSoundRef = useRef(null); // مرجع برای صدای ورق خوردن
 
-  // تشخیص تغییر حالت موبایل / دسکتاپ
+  useEffect(() => {
+    flipSoundRef.current = new Audio("/flip-sound.mp3"); // مسیر فایل صوتی
+  }, []);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -23,13 +28,12 @@ const App = ({ language = "en" }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // بارگذاری PDF و تبدیل آن به تصاویر
   const loadPdf = async (file) => {
     try {
       const pdf = await pdfjsLib.getDocument(file).promise;
       setNumPages(pdf.numPages);
 
-      const pagesArray = [];
+      let pagesArray = [];
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
         const page = await pdf.getPage(pageNumber);
         const viewport = page.getViewport({ scale: 1.5 });
@@ -40,6 +44,9 @@ const App = ({ language = "en" }) => {
         await page.render({ canvasContext: context, viewport }).promise;
         pagesArray.push(canvas.toDataURL());
       }
+
+      if (isRtl) pagesArray.reverse();
+
       setPages(pagesArray);
     } catch (error) {
       console.error("Error loading PDF:", error);
@@ -48,12 +55,10 @@ const App = ({ language = "en" }) => {
 
   useEffect(() => {
     if (bookRef.current && pages.length > 0) {
-      // اول بررسی کنیم که آیا turn.js قبلاً مقداردهی شده
       if ($(bookRef.current).data("turn")) {
-        $(bookRef.current).turn("destroy").remove(); // حذف کامل
+        $(bookRef.current).turn("destroy").remove();
       }
 
-      // یک تاخیر کوتاه برای اطمینان از حذف کامل
       setTimeout(() => {
         if (bookRef.current) {
           $(bookRef.current).turn({
@@ -61,32 +66,47 @@ const App = ({ language = "en" }) => {
             height: isMobile ? window.innerHeight * 0.8 : 600,
             autoCenter: true,
             display: isMobile ? "single" : "double",
+            direction: isRtl ? "rtl" : "ltr",
           });
         }
-      }, 100); // تاخیر 100 میلی‌ثانیه‌ای برای جلوگیری از تداخل
+      }, 100);
     }
   }, [pages, isMobile]);
 
-  // رفتن به صفحه بعدی
+  const playFlipSound = () => {
+    if (flipSoundRef.current) {
+      flipSoundRef.current.currentTime = 0; // تنظیم مجدد زمان پخش برای پخش سریع‌تر
+      flipSoundRef.current.play();
+    }
+  };
+
   const nextPage = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, numPages));
-    $(bookRef.current).turn("page", currentPage + 1);
+    if (currentPage < numPages) {
+      setCurrentPage((prev) => prev + 1);
+      $(bookRef.current).turn("page", currentPage + 1);
+      playFlipSound();
+    }
   };
 
-  // رفتن به صفحه قبلی
   const prevPage = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-    $(bookRef.current).turn("page", currentPage - 1);
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+      $(bookRef.current).turn("page", currentPage - 1);
+      playFlipSound();
+    }
   };
 
-  // تغییر صفحه با کلیک روی تصاویر
   const handlePageClick = (index) => {
-    setCurrentPage(index + 1); // شماره صفحه به ترتیب صفحه‌ها است
+    setCurrentPage(index + 1);
     $(bookRef.current).turn("page", index + 1);
+    playFlipSound();
   };
 
   return (
-    <Container maxWidth="md" sx={{ textAlign: "center", mt: 5 }}>
+    <Container
+      maxWidth="md"
+      sx={{ textAlign: "center", mt: 5, direction: isRtl ? "rtl" : "ltr" }}
+    >
       <input
         type="file"
         accept="application/pdf"
@@ -96,8 +116,8 @@ const App = ({ language = "en" }) => {
         ref={bookRef}
         className="flipbook"
         sx={{
-          width: isMobile ? "100%" : 800, // در موبایل تمام عرض صفحه را بگیرد
-          height: isMobile ? "auto" : 600, // ارتفاع را بر اساس عرض تنظیم کند
+          width: isMobile ? "100%" : 800,
+          height: isMobile ? "auto" : 600,
           margin: "auto",
           boxShadow: 3,
         }}
@@ -112,8 +132,8 @@ const App = ({ language = "en" }) => {
               src={page}
               alt={`Page ${index + 1}`}
               style={{
-                width: "100%", // در موبایل کل عرض صفحه را پر کند
-                height: isMobile ? "auto" : "100%", // ارتفاع متناسب با عرض تنظیم شود
+                width: "100%",
+                height: isMobile ? "auto" : "100%",
               }}
             />
           </div>
@@ -122,23 +142,23 @@ const App = ({ language = "en" }) => {
 
       <Box mt={2}>
         <Button
-          onClick={prevPage}
-          disabled={currentPage === 1}
+          onClick={isRtl ? nextPage : prevPage}
+          disabled={currentPage === (isRtl ? numPages : 1)}
           variant="contained"
           sx={{ mx: 1 }}
         >
-          صفحه قبلی
+          {isRtl ? "صفحه بعدی" : "صفحه قبلی"}
         </Button>
         <span>
           صفحه {currentPage} از {numPages}
         </span>
         <Button
-          onClick={nextPage}
-          disabled={currentPage === numPages}
+          onClick={isRtl ? prevPage : nextPage}
+          disabled={currentPage === (isRtl ? 1 : numPages)}
           variant="contained"
           sx={{ mx: 1 }}
         >
-          صفحه بعدی
+          {isRtl ? "صفحه قبلی" : "صفحه بعدی"}
         </Button>
       </Box>
     </Container>
