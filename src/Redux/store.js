@@ -19,6 +19,20 @@ const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // اکشن‌های مربوط به redux-persist را نادیده بگیرید تا هشدار غیرقابل سریال‌سازی ایجاد نشود
+        ignoredActions: [
+          "persist/PERSIST",
+          "persist/REHYDRATE",
+          "persist/PAUSE",
+          "persist/FLUSH",
+          "persist/PURGE",
+          "persist/REGISTER",
+        ],
+      },
+    }),
 });
 
 export const persistor = persistStore(store);

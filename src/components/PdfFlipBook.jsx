@@ -18,7 +18,7 @@ const PdfFlipBook = ({ language = "en" }) => {
   );
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const bookRef = useRef(null);
-  const fileInputRef = useRef(null); // اضافه کردن ریف برای کنترل input فایل
+  const fileInputRef = useRef(null); // کنترل input فایل با ref
 
   // پخش صدای ورق زدن
   const playFlipSound = () => {
@@ -35,8 +35,9 @@ const PdfFlipBook = ({ language = "en" }) => {
   // راه‌اندازی turn.js زمانی که صفحات موجود شدند
   useEffect(() => {
     if (bookRef.current && pdfPages.length > 0) {
+      // اگر turn.js روی المنت فعال بود، تنها instance آن را از بین ببریم
       if ($(bookRef.current).data("turn")) {
-        $(bookRef.current).turn("destroy").remove();
+        $(bookRef.current).turn("destroy");
       }
       setTimeout(() => {
         if (bookRef.current) {
@@ -83,7 +84,7 @@ const PdfFlipBook = ({ language = "en" }) => {
     $(bookRef.current).turn("page", index + 1);
   };
 
-  // دکمه حذف PDF: علاوه بر dispatch اکشن حذف، مقدار input فایل رو هم ریست می‌کنیم.
+  // دکمه حذف PDF: علاوه بر dispatch اکشن حذف، مقدار input فایل هم ریست می‌شود
   const handleRemovePdf = () => {
     dispatch(removePdf());
     if (fileInputRef.current) {
