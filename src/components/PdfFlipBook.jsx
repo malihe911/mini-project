@@ -15,6 +15,8 @@ const PdfFlipBook = ({ language = "en" }) => {
   const { pdfPages, numPages, currentPage, loading } = useSelector(
     (state) => state.pdf
   );
+  const [loaded, setLoaded] = useState(false);
+
   const fileUrl = useSelector((state) => state.pdf.fileUrl);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -28,6 +30,11 @@ const PdfFlipBook = ({ language = "en" }) => {
       .play()
       .catch((error) => console.warn("Audio playback prevented:", error));
   };
+  useEffect(() => {
+    setTimeout(() => {
+      setLoaded(true);
+    }, 500);
+  }, []);
 
   // بروزرسانی اندازه کتاب در هنگام تغییر اندازه صفحه
   useEffect(() => {
@@ -90,7 +97,7 @@ const PdfFlipBook = ({ language = "en" }) => {
         $(bookRef.current).turn("destroy");
       }
     };
-  }, [pdfPages, isMobile, isRtl, numPages, dispatch]);
+  }, [pdfPages, isMobile, isRtl, numPages, dispatch, loaded]);
 
   // مدیریت تغییر فایل PDF
   const handleFileChange = (e) => {
