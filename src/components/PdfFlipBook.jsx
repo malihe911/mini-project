@@ -1,5 +1,5 @@
 import React, { useRef, useState, useLayoutEffect, useEffect } from "react";
-import { Container, Button, Box, Typography } from "@mui/material";
+import { Container, Button, Box } from "@mui/material";
 import $ from "jquery";
 import "turn.js";
 import { useDispatch, useSelector } from "react-redux";
@@ -16,24 +16,18 @@ const PdfFlipBook = ({ language = "en" }) => {
   const { pdfPages, numPages, currentPage, loading } = useSelector(
     (state) => state.pdf
   );
+  const [loaded, setLoaded] = useState(false);
+
   const fileUrl = useSelector((state) => state.pdf.fileUrl);
 
-  // وضعیت‌های محلی
-  const [loaded, setLoaded] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // مراجع DOM
   const bookRef = useRef(null);
   const fileInputRef = useRef(null);
-  // ref برای نگهداری به‌روز وضعیت صدای کتاب در callback‌های turn.js
-  const soundEnabledRef = useRef(soundEnabled);
 
-  useEffect(() => {
-    soundEnabledRef.current = soundEnabled;
-  }, [soundEnabled]);
-
-  // تابع پخش صدای ورق زدن
+  // صدای ورق زدن
   const playFlipSound = () => {
     if (!soundEnabledRef.current) return;
     const flipSound = new Audio("/flip-sound.mp3");
@@ -41,14 +35,13 @@ const PdfFlipBook = ({ language = "en" }) => {
       .play()
       .catch((error) => console.warn("Audio playback prevented:", error));
   };
-
-  // تعیین وضعیت loaded پس از گذشت ۵۰۰ میلی‌ثانیه
   useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 500);
-    return () => clearTimeout(timer);
+    setTimeout(() => {
+      setLoaded(true);
+    }, 500);
   }, []);
 
-  // به‌روزرسانی اندازه کتاب در تغییر اندازه صفحه
+  // بروزرسانی اندازه کتاب در هنگام تغییر اندازه صفحه
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
@@ -65,27 +58,31 @@ const PdfFlipBook = ({ language = "en" }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // راه‌اندازی کتاب ورق‌خورده با turn.js
+  // تابع راه‌اندازی کتاب ورق‌خورده
   const initializeFlipBook = () => {
     if (bookRef.current && pdfPages.length > 0) {
+      // از بین بردن نمونه قبلی در صورت وجود
       if ($(bookRef.current).data("turn")) {
         $(bookRef.current).turn("destroy");
       }
+      // استفاده از تاخیر افزایش یافته جهت اطمینان از رندر کامل تصاویر
       setTimeout(() => {
         $(bookRef.current).turn({
           width: isMobile ? window.innerWidth - 40 : 800,
           height: isMobile ? window.innerHeight * 0.8 : 600,
           autoCenter: true,
-          display: "double",
+          display: "double", // نمایش دو صفحه‌ای برای موبایل و دسکتاپ
           direction: isRtl ? "rtl" : "ltr",
           when: {
             turning: playFlipSound,
             turned: (event, page) => {
+              // محاسبه شماره واقعی صفحه با توجه به جهت
               const actualPage = isRtl ? numPages - page + 1 : page;
               dispatch(setCurrentPage(actualPage));
             },
           },
         });
+        // تنظیم صفحه شروع
         if (!isRtl) {
           $(bookRef.current).turn("page", 1);
           dispatch(setCurrentPage(1));
@@ -93,11 +90,11 @@ const PdfFlipBook = ({ language = "en" }) => {
           $(bookRef.current).turn("page", numPages);
           dispatch(setCurrentPage(numPages));
         }
-      }, 200);
+      }, 200); // افزایش تاخیر از 100 به 200 میلی‌ثانیه
     }
   };
 
-  // استفاده از useLayoutEffect جهت اطمینان از رندر کامل DOM قبل از راه‌اندازی turn.js
+  // استفاده از useLayoutEffect جهت اطمینان از به‌روز بودن DOM قبل از راه‌اندازی turn.js
   useLayoutEffect(() => {
     initializeFlipBook();
     return () => {
@@ -116,12 +113,13 @@ const PdfFlipBook = ({ language = "en" }) => {
     }
   };
 
-  // رفتن به صفحه بعد
+  // رفتن به صفحه بعد (با در نظر گرفتن جهت)
   const nextPage = () => {
     if (isRtl) {
       if (currentPage > 1) {
         const newPage = currentPage - 1;
         dispatch(setCurrentPage(newPage));
+        // تبدیل شماره صفحه منطقی به شماره صفحه turn.js
         $(bookRef.current).turn("page", numPages - newPage + 1);
       }
     } else {
@@ -133,7 +131,7 @@ const PdfFlipBook = ({ language = "en" }) => {
     }
   };
 
-  // رفتن به صفحه قبلی
+  // رفتن به صفحه قبلی (با در نظر گرفتن جهت)
   const prevPage = () => {
     if (isRtl) {
       if (currentPage < numPages) {
@@ -217,12 +215,7 @@ const PdfFlipBook = ({ language = "en" }) => {
           }}
         >
           {(isRtl ? [...pdfPages].reverse() : pdfPages).map((page, index) => (
-            <div
-              key={index}
-              className="page"
-              onClick={handlePageClick}
-              style={{ cursor: "pointer" }}
-            >
+            <div key={index} className="page">
               <img
                 src={page}
                 alt={`صفحه ${isRtl ? numPages - index : index + 1}`}
@@ -232,30 +225,18 @@ const PdfFlipBook = ({ language = "en" }) => {
                   width: "100%",
                   height: isMobile ? "auto" : "100%",
                   userSelect: "none",
-                  pointerEvents: "none",
                 }}
               />
             </div>
           ))}
         </Box>
       )}
-
-      {/* دکمه‌های ناوبری همراه با نمایش شماره صفحه */}
+      {/* دکمه‌های ناوبری اختیاری */}
       {pdfPages.length > 0 && (
-        <Box
-          sx={{
-            mt: 2,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
+        <Box sx={{ mt: 2 }}>
           <Button onClick={prevPage} variant="contained" sx={{ mr: 1 }}>
             صفحه قبلی
           </Button>
-          <Typography variant="h6" sx={{ mx: 2 }}>
-            صفحه {currentPage} از {numPages}
-          </Typography>
           <Button onClick={nextPage} variant="contained">
             صفحه بعدی
           </Button>
