@@ -57,7 +57,7 @@ const PdfFlipBook = ({ language = "en" }) => {
         $(bookRef.current).turn(
           "size",
           mobile ? window.innerWidth - 40 : 800,
-          mobile ? window.innerHeight * 0.8 : 600
+          mobile ? window.innerHeight * 0.95 : 600
         );
       }
     };
@@ -74,9 +74,9 @@ const PdfFlipBook = ({ language = "en" }) => {
       setTimeout(() => {
         $(bookRef.current).turn({
           width: isMobile ? window.innerWidth - 40 : 800,
-          height: isMobile ? window.innerHeight * 0.8 : 600,
+          height: isMobile ? window.innerHeight * 0.95 : 600,
           autoCenter: true,
-          display: "double",
+          display: isMobile ? "single" : "double",
           direction: isRtl ? "rtl" : "ltr",
           when: {
             turning: playFlipSound,
@@ -86,6 +86,7 @@ const PdfFlipBook = ({ language = "en" }) => {
             },
           },
         });
+
         if (!isRtl) {
           $(bookRef.current).turn("page", 1);
           dispatch(setCurrentPage(1));
@@ -211,7 +212,7 @@ const PdfFlipBook = ({ language = "en" }) => {
           className="flipbook"
           sx={{
             width: isMobile ? "100%" : 800,
-            height: isMobile ? "auto" : 600,
+            height: isMobile ? window.innerHeight * 0.95 : 600, // تغییر ارتفاع در حالت موبایل
             margin: "auto",
             boxShadow: 3,
           }}
