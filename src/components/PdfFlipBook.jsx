@@ -26,20 +26,29 @@ const PdfFlipBook = ({ language = "en" }) => {
   // مراجع DOM
   const bookRef = useRef(null);
   const fileInputRef = useRef(null);
-  // ref برای نگهداری به‌روز وضعیت صدای کتاب در callback‌های turn.js
-  const soundEnabledRef = useRef(soundEnabled);
 
+  // نگهداری وضعیت صدای کتاب در callback‌های turn.js
+  const soundEnabledRef = useRef(soundEnabled);
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
+  // پیش‌بارگذاری صدا با استفاده از ref
+  const flipSoundRef = useRef(null);
+  useEffect(() => {
+    flipSoundRef.current = new Audio("/flip-sound.mp3");
+    flipSoundRef.current.preload = "auto";
+  }, []);
+
   // تابع پخش صدای ورق زدن
   const playFlipSound = () => {
     if (!soundEnabledRef.current) return;
-    const flipSound = new Audio("/flip-sound.mp3");
-    flipSound
-      .play()
-      .catch((error) => console.warn("Audio playback prevented:", error));
+    if (flipSoundRef.current) {
+      flipSoundRef.current.currentTime = 0;
+      flipSoundRef.current
+        .play()
+        .catch((error) => console.warn("Audio playback prevented:", error));
+    }
   };
 
   // تعیین وضعیت loaded پس از گذشت ۵۰۰ میلی‌ثانیه
@@ -48,7 +57,7 @@ const PdfFlipBook = ({ language = "en" }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  // به‌روزرسانی اندازه کتاب در تغییر اندازه صفحه
+  // به‌روزرسانی اندازه کتاب در تغییر اندازه صفحه (بدون تغییر حالت نمایش)
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
@@ -65,10 +74,11 @@ const PdfFlipBook = ({ language = "en" }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // راه‌اندازی کتاب ورق‌خورده با turn.js
-  const initializeFlipBook = () => {
-    if (bookRef.current && pdfPages.length > 0) {
-      if ($(bookRef.current).data("turn")) {
+  // راه‌اندازی اولیه کتاب ورق‌خورده
+  useLayoutEffect(() => {
+    if (pdfPages.length > 0) {
+      // در صورتی که کتاب قبلاً راه‌اندازی شده باشد، آن را از بین می‌بریم
+      if (bookRef.current && $(bookRef.current).data("turn")) {
         $(bookRef.current).turn("destroy");
       }
       setTimeout(() => {
@@ -79,14 +89,16 @@ const PdfFlipBook = ({ language = "en" }) => {
           display: isMobile ? "single" : "double",
           direction: isRtl ? "rtl" : "ltr",
           when: {
-            turning: playFlipSound,
+            turning: (event, page) => {
+              playFlipSound();
+            },
             turned: (event, page) => {
               const actualPage = isRtl ? numPages - page + 1 : page;
               dispatch(setCurrentPage(actualPage));
             },
           },
         });
-
+        // تنظیم صفحه اولیه
         if (!isRtl) {
           $(bookRef.current).turn("page", 1);
           dispatch(setCurrentPage(1));
@@ -96,17 +108,46 @@ const PdfFlipBook = ({ language = "en" }) => {
         }
       }, 200);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfPages, isRtl, numPages, dispatch, loaded]);
 
-  // استفاده از useLayoutEffect جهت اطمینان از رندر کامل DOM قبل از راه‌اندازی turn.js
-  useLayoutEffect(() => {
-    initializeFlipBook();
-    return () => {
-      if (bookRef.current && $(bookRef.current).data("turn")) {
-        $(bookRef.current).turn("destroy");
-      }
-    };
-  }, [pdfPages, isMobile, isRtl, numPages, dispatch, loaded]);
+  // به‌روزرسانی حالت نمایش (display) در مواقعی که حالت موبایل/دسکتاپ تغییر می‌کند
+  useEffect(() => {
+    if (
+      pdfPages.length > 0 &&
+      bookRef.current &&
+      $(bookRef.current).data("turn")
+    ) {
+      const savedPage = currentPage;
+      // کتاب را از بین می‌بریم
+      $(bookRef.current).turn("destroy");
+      setTimeout(() => {
+        // راه‌اندازی مجدد کتاب با تنظیمات جدید
+        $(bookRef.current).turn({
+          width: isMobile ? window.innerWidth - 40 : 800,
+          height: isMobile ? window.innerHeight * 0.95 : 600,
+          autoCenter: true,
+          display: isMobile ? "single" : "double",
+          direction: isRtl ? "rtl" : "ltr",
+          when: {
+            turning: (event, page) => {
+              playFlipSound();
+            },
+            turned: (event, page) => {
+              const actualPage = isRtl ? numPages - page + 1 : page;
+              dispatch(setCurrentPage(actualPage));
+            },
+          },
+        });
+        // بازیابی صفحه فعلی
+        $(bookRef.current).turn(
+          "page",
+          isRtl ? numPages - savedPage + 1 : savedPage
+        );
+      }, 200);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
 
   // مدیریت تغییر فایل PDF
   const handleFileChange = (e) => {
@@ -162,7 +203,7 @@ const PdfFlipBook = ({ language = "en" }) => {
     }
   };
 
-  // رویداد کلیک روی صفحه: تشخیص محل کلیک جهت تغییر صفحه
+  // رویداد کلیک روی صفحه جهت تغییر صفحه
   const handlePageClick = (event) => {
     if (!bookRef.current) return;
     const rect = bookRef.current.getBoundingClientRect();
@@ -212,7 +253,7 @@ const PdfFlipBook = ({ language = "en" }) => {
           className="flipbook"
           sx={{
             width: isMobile ? "100%" : 800,
-            height: isMobile ? window.innerHeight * 0.95 : 600, // تغییر ارتفاع در حالت موبایل
+            height: isMobile ? window.innerHeight * 0.95 : 600,
             margin: "auto",
             boxShadow: 3,
           }}
