@@ -21,8 +21,8 @@ export const loadPdfPages = createAsyncThunk(
       await page.render({ canvasContext: context, viewport }).promise;
       pagesArray.push(canvas.toDataURL());
     }
-    if (isRtl) pagesArray.reverse();
-    return { pages: pagesArray };
+    // if (isRtl) pagesArray.reverse();
+    return { pages: pagesArray, isRtl };
   }
 );
 
@@ -34,6 +34,7 @@ const pdfSlice = createSlice({
     currentPage: 1,
     loading: false,
     error: null,
+    isRtl: false,
   },
   reducers: {
     removePdf: (state) => {
@@ -54,6 +55,7 @@ const pdfSlice = createSlice({
       .addCase(loadPdfPages.fulfilled, (state, action) => {
         state.loading = false;
         state.pdfPages = action.payload.pages;
+        state.isRtl = action.payload.isRtl;
         state.numPages = action.payload.pages.length;
       })
       .addCase(loadPdfPages.rejected, (state, action) => {

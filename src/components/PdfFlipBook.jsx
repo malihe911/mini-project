@@ -8,12 +8,15 @@ import {
   removePdf,
   setCurrentPage,
 } from "../Redux/features/pdfSlice";
+import * as pdfjsLib from "pdfjs-dist";
+import "pdfjs-dist/build/pdf.worker.entry";
 
 const PdfFlipBook = ({ language = "en" }) => {
   // تعیین جهت بر اساس زبان
-  const isRtl = language === "fa";
+  // const isRtl = language === "fa";
+
   const dispatch = useDispatch();
-  const { pdfPages, numPages, currentPage, loading } = useSelector(
+  const { pdfPages, numPages, currentPage, loading, isRtl } = useSelector(
     (state) => state.pdf
   );
   const fileUrl = useSelector((state) => state.pdf.fileUrl);
@@ -77,17 +80,17 @@ const PdfFlipBook = ({ language = "en" }) => {
   // راه‌اندازی اولیه کتاب ورق‌خورده
   useLayoutEffect(() => {
     if (pdfPages.length > 0) {
-      // در صورتی که کتاب قبلاً راه‌اندازی شده باشد، آن را از بین می‌بریم
       if (bookRef.current && $(bookRef.current).data("turn")) {
         $(bookRef.current).turn("destroy");
       }
+
       setTimeout(() => {
         $(bookRef.current).turn({
           width: isMobile ? window.innerWidth - 40 : 800,
           height: isMobile ? window.innerHeight * 0.95 : 600,
           autoCenter: true,
           display: isMobile ? "single" : "double",
-          direction: isRtl ? "rtl" : "ltr",
+          direction: isRtl ? "rtl" : "ltr", // Set direction dynamically
           when: {
             turning: (event, page) => {
               playFlipSound();
@@ -98,7 +101,8 @@ const PdfFlipBook = ({ language = "en" }) => {
             },
           },
         });
-        // تنظیم صفحه اولیه
+
+        // Set initial page based on RTL/LTR
         if (!isRtl) {
           $(bookRef.current).turn("page", 1);
           dispatch(setCurrentPage(1));
@@ -106,10 +110,18 @@ const PdfFlipBook = ({ language = "en" }) => {
           $(bookRef.current).turn("page", numPages);
           dispatch(setCurrentPage(numPages));
         }
+
+        // Move to the currentPage once initialized
+        if (currentPage) {
+          const adjustedPage = isRtl ? numPages - currentPage + 1 : currentPage;
+          $(bookRef.current).turn("page", adjustedPage);
+        } else {
+          $(bookRef.current).turn("page", isRtl ? numPages : 1);
+          dispatch(setCurrentPage(isRtl ? numPages : 1));
+        }
       }, 200);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdfPages, isRtl, numPages, dispatch, loaded]);
+  }, [pdfPages, isRtl, numPages, dispatch, loaded, isMobile]);
 
   // به‌روزرسانی حالت نمایش (display) در مواقعی که حالت موبایل/دسکتاپ تغییر می‌کند
   useEffect(() => {
@@ -149,12 +161,47 @@ const PdfFlipBook = ({ language = "en" }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
 
+  const detectRtlFromPdf = async (file) => {
+    const rtlChars = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/; // Persian, Arabic, etc.
+    try {
+      const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
+
+      let detectedRtl = false;
+      const numPagesToCheck = Math.min(3, pdf.numPages); // Check up to 3 pages
+
+      for (let pageNum = 1; pageNum <= numPagesToCheck; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+
+        // Extract plain text from the page
+        const extractedText = textContent.items
+          .map((item) => item.str)
+          .join(" ");
+
+        if (rtlChars.test(extractedText)) {
+          detectedRtl = true;
+          break; // Stop checking if RTL is found
+        }
+      }
+
+      return detectedRtl;
+    } catch (error) {
+      console.error("Error detecting RTL in PDF:", error);
+      return false; // Default to LTR if an error occurs
+    }
+  };
+
   // مدیریت تغییر فایل PDF
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     if (e.target.files && e.target.files[0]) {
       if (fileUrl) URL.revokeObjectURL(fileUrl);
-      const newUrl = URL.createObjectURL(e.target.files[0]);
-      dispatch(loadPdfPages({ file: newUrl, isRtl }));
+      const file = e.target.files[0];
+      const newUrl = URL.createObjectURL(file);
+
+      const isRtl = await detectRtlFromPdf(file);
+      console.log("isRtl", isRtl);
+      // If no text was found, use a fallback (e.g., user selection)
+      dispatch(loadPdfPages({ file: newUrl, isRtl: isRtl ?? false }));
     }
   };
 
@@ -247,7 +294,7 @@ const PdfFlipBook = ({ language = "en" }) => {
       {loading && <p>در حال بارگذاری PDF...</p>}
 
       {/* نمایش کتاب ورق‌خورده */}
-      {pdfPages.length > 0 && (
+      {loaded && pdfPages.length > 0 && (
         <Box
           ref={bookRef}
           className="flipbook"
