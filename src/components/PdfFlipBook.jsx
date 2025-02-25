@@ -340,13 +340,13 @@ const PdfFlipBook = ({ language = "en" }) => {
           }}
         >
           <Button onClick={prevPage} variant="contained" sx={{ mr: 1 }}>
-            صفحه قبلی
+            +
           </Button>
           <Typography variant="h6" sx={{ mx: 2 }}>
             صفحه {currentPage} از {numPages}
           </Typography>
           <Button onClick={nextPage} variant="contained">
-            صفحه بعدی
+            -
           </Button>
         </Box>
       )}
