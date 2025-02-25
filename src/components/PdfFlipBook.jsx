@@ -69,7 +69,7 @@ const PdfFlipBook = ({ language = "en" }) => {
         $(bookRef.current).turn(
           "size",
           mobile ? window.innerWidth - 40 : 800,
-          mobile ? window.innerHeight * 0.95 : 600
+          mobile ? window.innerHeight : 600 // ارتفاع کامل صفحه در موبایل
         );
       }
     };
@@ -87,7 +87,7 @@ const PdfFlipBook = ({ language = "en" }) => {
       setTimeout(() => {
         $(bookRef.current).turn({
           width: isMobile ? window.innerWidth - 40 : 800,
-          height: isMobile ? window.innerHeight * 0.95 : 600,
+          height: isMobile ? window.innerHeight : 600, // ارتفاع کامل صفحه در موبایل
           autoCenter: true,
           display: isMobile ? "single" : "double",
           direction: isRtl ? "rtl" : "ltr", // Set direction dynamically
@@ -137,7 +137,7 @@ const PdfFlipBook = ({ language = "en" }) => {
         // راه‌اندازی مجدد کتاب با تنظیمات جدید
         $(bookRef.current).turn({
           width: isMobile ? window.innerWidth - 40 : 800,
-          height: isMobile ? window.innerHeight * 0.95 : 600,
+          height: isMobile ? window.innerHeight : 600, // ارتفاع کامل صفحه در موبایل
           autoCenter: true,
           display: isMobile ? "single" : "double",
           direction: isRtl ? "rtl" : "ltr",
@@ -300,7 +300,7 @@ const PdfFlipBook = ({ language = "en" }) => {
           className="flipbook"
           sx={{
             width: isMobile ? "100%" : 800,
-            height: isMobile ? window.innerHeight * 0.95 : 600,
+            height: isMobile ? window.innerHeight : 600, // ارتفاع کامل صفحه در موبایل
             margin: "auto",
             boxShadow: 3,
           }}

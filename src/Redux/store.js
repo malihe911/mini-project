@@ -22,7 +22,7 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // اکشن‌های مربوط به redux-persist را نادیده بگیرید تا هشدار غیرقابل سریال‌سازی ایجاد نشود
+        // اکشن‌های مربوط به redux-persist را نادیده بگیرد تا هشدار غیرقابل سریال‌سازی ایجاد نشود
         ignoredActions: [
           "persist/PERSIST",
           "persist/REHYDRATE",
